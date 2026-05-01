@@ -1,0 +1,83 @@
+{
+  "name": "Build #5 - 48-Hour Review Follow-Up",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 6 }] }
+      },
+      "id": "node-001",
+      "name": "Schedule Trigger (Every 6 Hours)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://services.leadconnectorhq.com/contacts/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "highLevelApi",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "tags", "value": "review-requested" },
+            { "name": "excludeTags", "value": "review-left,review-followup-sent" }
+          ]
+        }
+      },
+      "id": "node-002",
+      "name": "Get Pending Review Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": { "fieldToSplitOut": "contacts" },
+      "id": "node-003",
+      "name": "Split Into Contacts",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const contact = $input.first().json;\nconst firstName = contact.firstName || 'Client';\nconst reviewLink = $env.GOOGLE_REVIEW_LINK;\nconst followUpSMS = 'Hi ' + firstName + ', just a gentle reminder! Your Google review helps other injury victims find trusted help: ' + reviewLink + ' Thank you! - The Legal Team';\nreturn [{ json: { contactId: contact.id, firstName, phone: contact.phone, followUpSMS } }];"
+      },
+      "id": "node-004",
+      "name": "Build Follow-Up Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "highLevelApi",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "type", "value": "SMS" },
+            { "name": "contactId", "value": "={{$json.contactId}}" },
+            { "name": "message", "value": "={{$json.followUpSMS}}" }
+          ]
+        }
+      },
+      "id": "node-005",
+      "name": "Send Follow-Up SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Every 6 Hours)": { "main": [[ { "node": "Get Pending Review Contacts", "type": "main", "index": 0 } ]] },
+    "Get Pending Review Contacts": { "main": [[ { "node": "Split Into Contacts", "type": "main", "index": 0 } ]] },
+    "Split Into Contacts": { "main": [[ { "node": "Build Follow-Up Message", "type": "main", "index": 0 } ]] },
+    "Build Follow-Up Message": { "main": [[ { "node": "Send Follow-Up SMS", "type": "main", "index": 0 } ]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["build-05", "review-generation", "follow-up"]
+}
